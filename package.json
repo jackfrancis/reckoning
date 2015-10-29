@@ -1,0 +1,22 @@
+{
+  "name": "reckoning",
+  "version": "0.0.1",
+  "description": "A simple HTTP interface for activity accounting",
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --reporter spec test/index.js"
+  },
+  "author": "Jack Francis",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "connect-timeout": "^1.7.0",
+    "expect": "^1.12.2",
+    "express": "^4.0.0",
+    "lodash": "^3.10.1",
+    "mocha": "^2.3.3",
+    "moment": "^2.10.6",
+    "really-need": "^1.6.3",
+    "supertest": "^1.1.0"
+  }
+}
