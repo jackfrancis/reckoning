@@ -11,11 +11,11 @@ var config = require('./config.json'), // config.json-sourced configuration
     _ = require('lodash'),
     moment = require('moment'),
     server,
-    memo = {}; // temporary in-memory key-value store
+    dataStore = require('./lib/memo'); // using ephemeral in-memory data store library by default
 
 router.get('/', function (req, res) {
   if (req.url.indexOf('favico') === -1) {
-    res.json(memo); // dump the whole thing!
+    res.json(dataStore.get()); // dump the whole thing!
   }
 });
 
@@ -40,7 +40,7 @@ queue.process('incrementer', function (job, done) {
   activities.forEach(function (item) {
     var activity = String(item);
     if (validateActivity(activity)) {
-      incrementActivity(thing, activity);
+      increment(thing, activity);
     }
   });
   done();
@@ -75,8 +75,8 @@ router.post('/:thing', bodyParser.json(), function (req, res) {
  */
 function getStats (thing) {
   var stats = {};
-  if (exists(thing)) {
-    _.forEach(memo[thing], function (data, activity) {
+  if (dataStore.exists(thing)) {
+    _.forEach(dataStore.get(thing), function (data, activity) {
       stats[activity] = getActivityStats(activity, data);
     });
   }
@@ -134,48 +134,10 @@ function validateActivity (activity) {
 }
 
 /**
- * Increment a specific thing's activity count by 1
- * @param {String} thing the thing whose activity counter we are incrementing
- * @param {String} activity the activity we want to record as having occurred one more time
- */
-function incrementActivity (thing, activity) {
-  if (!exists(thing)) {
-    add(thing);
-  }
-  increment(thing, activity);
-}
-
-/**
- * Light wrapper to determine if a thing, and optionally a thing's activity, has been previously recorded
- * @param {String} thing the thing we want to check for being already present in the thing data store
- * @param {String?} activity the thing's activity we want to check for having been previously recorded
- * @returns {boolean}
- */
-function exists (thing, activity) {
-  if (activity) {
-    return memo[thing] ? !!memo[thing][activity] : false;
-  } else {
-    return !!memo[thing];
-  }
-}
-
-/**
  * Light wrapper to "increment" an activity counter, stored as time-stamped elements in a array.
- * If we haven't ever recorded this activity for this thing, we initialize a new array.
  * @param {String} thing the thing whose activity counter we are incrementing
  * @param {String} activity the activity we want to record as having occurred one more time
  */
 function increment (thing, activity) {
-  if (!memo[thing][activity]) {
-    memo[thing][activity] = [];
-  }
-  memo[thing][activity].push(moment());
-}
-
-/**
- * Add a new thing to our data store
- * @param {String} thing the thing we want to add
- */
-function add (thing) {
-  memo[thing] = {};
+  dataStore.addActivity(thing, activity, moment());
 }
