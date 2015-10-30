@@ -51,10 +51,12 @@ Object {
 ## Under the hood
 
 Reckoning uses a simple, [recognizable node/express pattern](index.js) to respond to HTTP GET and POST. Optionally, via a [config file](config.json), you can build up a whitelist of known trackable `activities` ("install" in the example above).
+
+Isolation (in the *ACID* sense) is currently provided using a simple job queue via the [kue](https://github.com/Automattic/kue) package; this requires a proximate redis connection (for dev'ing, kue will default to 127.0.0.1:6379, so simply launching a redis process on your development host using the default connection configuration will fulfill this requirement). 
+   
+A persistent data solution is not provided, and instead an in-memory, process-dependent memo object has been provided as a placeholder.
    
 [Tests are provided](test/index.js) that use mocha, supertest, and expect.
-
-A persistent data solution is not provided, and instead an in-memory, process-dependent memo object has been provided as a placeholder.
 
 ## Installation
 

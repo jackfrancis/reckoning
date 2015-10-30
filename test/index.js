@@ -35,7 +35,7 @@ describe('test POST/GET activity', function () {
           throw err;
         }
         expect(res.status).toBe(200);
-        expect(res.body[thing][activity].length).toBe(1);
+        expect(res.body.data.activities.length).toBe(1);
         done();
       });
   });
@@ -49,7 +49,7 @@ describe('test POST/GET activity', function () {
           throw err;
         }
         expect(res.status).toBe(200);
-        expect(res.body[thing][activity].length).toBe(3);
+        expect(res.body.data.activities.length).toBe(2);
         done();
       });
   });
@@ -62,7 +62,6 @@ describe('test POST/GET activity', function () {
           throw err;
         }
         expect(res.status).toBe(200);
-        console.log(res.body);
         expect(res.body[activity].count).toBe(3);
         expect(res.body[activity].today).toBe(3);
         expect(res.body[activity].week).toBe(3);
