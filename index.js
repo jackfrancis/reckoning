@@ -11,7 +11,9 @@ var config = require('./config.json'), // config.json-sourced configuration
     _ = require('lodash'),
     moment = require('moment'),
     server,
-    dataStore = require('./lib/memo'); // using ephemeral in-memory data store library by default
+    dataStore = require('./lib/memo'), // using ephemeral in-memory data store library by default
+    models = require('./lib/models'),
+    stats = require('./lib/stats');
 
 router.get('/', function (req, res) {
   if (req.url.indexOf('favico') === -1) {
@@ -37,11 +39,8 @@ module.exports = server;
 queue.process('incrementer', function (job, done) {
   var activities = job.data.activities,
       thing = job.data.thing;
-  activities.forEach(function (item) {
-    var activity = String(item);
-    if (validateActivity(activity)) {
-      increment(thing, activity);
-    }
+  activities.forEach(function (activity) {
+    increment(thing, activity);
   });
   done();
 });
@@ -49,89 +48,31 @@ queue.process('incrementer', function (job, done) {
 router.get('/:thing', function (req, res) {
   var thing = req.params.thing;
 
-  res.json(getStats(thing));
+  if (dataStore.exists(thing)) {
+    res.json(stats.getStats(dataStore.get(thing)));
+  }
 });
 
 router.post('/:thing', bodyParser.json(), function (req, res) {
-  var thing = req.params.thing,
+  var model = models.make({
+      thing: req.params.thing,
+      version: _.get(req.body, 'version'),
+      activities: _.get(req.body, 'activities'),
+      signature: _.get(req.body, 'signature'),
+      user: _.get(req.body, 'user')
+  }),
       job;
 
-  if (Array.isArray(req.body)) {
-    job = queue.create('incrementer', {
-      thing: thing,
-      activities: req.body
-    }).save(function (err) {
+  if (model) {
+    job = queue.create('incrementer', model).save(function (err) {
       if (!err) {
         res.json(job);
       }
     });
+  } else {
+    res.status(400).send('Invalid parameters passed to API!');
   }
 });
-
-/**
- * Returns a stats object for a thing
- * @param thing
- * @returns {{}}
- */
-function getStats (thing) {
-  var stats = {};
-  if (dataStore.exists(thing)) {
-    _.forEach(dataStore.get(thing), function (data, activity) {
-      stats[activity] = getActivityStats(activity, data);
-    });
-  }
-  return stats;
-}
-
-/**
- * Wrapper function interface to provide activity-specific stats gathering
- * @param {String} activity activity string identifier, e.g., "download"
- * @param {Array} data array
- * @returns {{}}
- */
-function getActivityStats (activity, data) {
-  switch (activity) {
-    default :
-      return getCountingStats(data);
-  }
-}
-
-/**
- *
- * @param {Array} data array of moment objects
- * @returns {{count: *, today: Number, week: Number, month: Number, year: Number}}
- */
-function getCountingStats (data) {
-  return {
-    count: data.length,
-    today: data.filter(function (item) {
-      return moment().isSame(item, 'day');
-    }).length,
-    week: data.filter(function (item) {
-      return moment().isSame(item, 'week');
-    }).length,
-    month: data.filter(function (item) {
-      return moment().isSame(item, 'month');
-    }).length,
-    year: data.filter(function (item) {
-      return moment().isSame(item, 'year');
-    }).length
-  };
-}
-
-/**
- * Ensure that the we keep a sane, predictable reckoning.
- * I.e.: Is this a "whitelisted" activity that we actually want to track?
- * If the "activities" array in our config is empty, we assume a global whitelist
- * @param activity
- * @returns {boolean}
- */
-function validateActivity (activity) {
-  var whitelist = config.activities;
-  return whitelist.length === 0 || whitelist.some(function (element, index, array) {
-    return array.length === 0 || element === activity;
-  });
-}
 
 /**
  * Light wrapper to "increment" an activity counter, stored as time-stamped elements in a array.
