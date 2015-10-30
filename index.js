@@ -15,6 +15,21 @@ var config = require('./config.json'), // config.json-sourced configuration
     models = require('./lib/models'),
     stats = require('./lib/stats');
 
+
+/**
+ * Kue UI
+ */
+if (config.enableUi) {
+  kue.app.listen(3000);
+}
+
+/**
+ * Log job queue errors
+ */
+queue.on('error', function(err) {
+  console.log(err);
+});
+
 router.get('/', function (req, res) {
   if (req.url.indexOf('favico') === -1) {
     res.json(dataStore.get()); // dump the whole thing!
@@ -50,6 +65,8 @@ router.get('/:thing', function (req, res) {
 
   if (dataStore.exists(thing)) {
     res.json(stats.getStats(dataStore.get(thing)));
+  } else {
+    res.status(404).send({});
   }
 });
 
@@ -64,9 +81,12 @@ router.post('/:thing', bodyParser.json(), function (req, res) {
       job;
 
   if (model) {
-    job = queue.create('incrementer', model).save(function (err) {
+    model.title = model.thing + ':' + model.version + ' --> ' + model.activities[0];
+    job = queue.create('incrementer', model).removeOnComplete(true).save(function (err) {
       if (!err) {
         res.json(job);
+      } else {
+        res.json(500).send('Something went wrong! Unable to create a job to process the request', req);
       }
     });
   } else {
