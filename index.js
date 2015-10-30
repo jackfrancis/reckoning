@@ -2,8 +2,8 @@
 
 var config = require('./config.json'), // config.json-sourced configuration
     express = require('express'),
-    http = require('http'),
-    https = require('https'),
+    kue = require('kue'),
+    queue = kue.createQueue(),
     app = express(),
     bodyParser = require('body-parser'),
     timeout = require('connect-timeout'),
@@ -34,6 +34,18 @@ server = app.listen(8000, function () {
 
 module.exports = server;
 
+queue.process('incrementer', function (job, done) {
+  var activities = job.data.activities,
+      thing = job.data.thing;
+  activities.forEach(function (item) {
+    var activity = String(item);
+    if (validateActivity(activity)) {
+      incrementActivity(thing, activity);
+    }
+  });
+  done();
+});
+
 router.get('/:thing', function (req, res) {
   var thing = req.params.thing;
 
@@ -42,17 +54,18 @@ router.get('/:thing', function (req, res) {
 
 router.post('/:thing', bodyParser.json(), function (req, res) {
   var thing = req.params.thing,
-      data = {};
+      job;
+
   if (Array.isArray(req.body)) {
-    req.body.forEach(function (item) {
-      var activity = String(item);
-      if (validateActivity(activity)) {
-        incrementActivity(thing, activity);
+    job = queue.create('incrementer', {
+      thing: thing,
+      activities: req.body
+    }).save(function (err) {
+      if (!err) {
+        res.json(job);
       }
     });
   }
-  data[thing] = memo[thing];
-  res.json(data);
 });
 
 /**
