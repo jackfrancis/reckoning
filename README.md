@@ -50,7 +50,7 @@ Object {
 
 ## Under the hood
 
-Reckoning uses a simple, [recognizable node/express pattern](index.js) to respond to HTTP GET and POST. Optionally, via a [config file](config.json), you can build up a whitelist of known trackable `activities` ("install" in the example above).
+Reckoning uses a simple, [recognizable node/express pattern](index.js) to respond to HTTP GET and POST (**requires node.js version 0.10 or greater**). Optionally, via a [config file](config.json), you can build up a whitelist of known trackable `activities` ("install" in the example above).
 
 Isolation (in the *ACID* sense) is currently provided using a simple job queue via the [kue](https://github.com/Automattic/kue) package; this requires a proximate redis connection (for dev'ing, kue will default to 127.0.0.1:6379, so simply launching a redis process on your development host using the default connection configuration will fulfill this requirement). 
    
