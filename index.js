@@ -2,8 +2,6 @@
 
 var config = require('./config.json'), // config.json-sourced configuration
     express = require('express'),
-    kue = require('kue'),
-    queue = kue.createQueue(),
     app = express(),
     bodyParser = require('body-parser'),
     timeout = require('connect-timeout'),
@@ -13,28 +11,8 @@ var config = require('./config.json'), // config.json-sourced configuration
     server,
     dataStore = require('./lib/memo'), // using ephemeral in-memory data store library by default
     models = require('./lib/models'),
+    queue = require('./lib/queue'),
     stats = require('./lib/stats');
-
-
-/**
- * Kue UI
- */
-if (config.enableUi) {
-  kue.app.listen(3000);
-}
-
-/**
- * Log job queue errors
- */
-queue.on('error', function(err) {
-  console.log(err);
-});
-
-router.get('/', function (req, res) {
-  if (req.url.indexOf('favico') === -1) {
-    res.json(dataStore.get()); // dump the whole thing!
-  }
-});
 
 app.use('/', router);
 app.use(timeout(10000));
@@ -51,13 +29,10 @@ server = app.listen(8000, function () {
 
 module.exports = server;
 
-queue.process('incrementer', function (job, done) {
-  var activities = job.data.activities,
-      thing = job.data.thing;
-  activities.forEach(function (activity) {
-    increment(thing, activity);
-  });
-  done();
+router.get('/', function (req, res) {
+  if (req.url.indexOf('favico') === -1) {
+    res.json(dataStore.get()); // dump the whole thing!
+  }
 });
 
 router.get('/:thing', function (req, res) {
@@ -75,30 +50,38 @@ router.post('/:thing', bodyParser.json(), function (req, res) {
       thing: req.params.thing,
       version: _.get(req.body, 'version'),
       activities: _.get(req.body, 'activities'),
+      when: moment(),
       signature: _.get(req.body, 'signature'),
       user: _.get(req.body, 'user')
   }),
-      job;
+    jobSpecs = {};
 
   if (model) {
-    model.title = model.thing + ':' + model.version + ' --> ' + model.activities[0];
-    job = queue.create('incrementer', model).removeOnComplete(true).save(function (err) {
-      if (!err) {
-        res.json(job);
-      } else {
-        res.json(500).send('Something went wrong! Unable to create a job to process the request', req);
-      }
-    });
+    jobSpecs.title = model.thing + ':' + model.version + ' --> ' + model.activities[0];
+    jobSpecs.model = model;
+    queue.add(jobSpecs, res);
   } else {
     res.status(400).send('Invalid parameters passed to API!');
   }
 });
 
+// Define a job called 'incrementer' to be handled by the worker queue
+queue.define('incrementer', increment);
+
+
 /**
- * Light wrapper to "increment" an activity counter, stored as time-stamped elements in a array.
- * @param {String} thing the thing whose activity counter we are incrementing
- * @param {String} activity the activity we want to record as having occurred one more time
+ * The increment job as expressed as a function interface that our worker queue understands.
+ * What 'increment' actually does is enumerate over an 'activities' array defined inside the job,
+ * and add each activity to our data store, essentially recording the following:
+ *   - 'thing' did this 'activity' at a certain time 'when'
+ * @param {Object} job a queue job object
+ * @param {Function} done a function to be invoked when job execution is complete
  */
-function increment (thing, activity) {
-  dataStore.addActivity(thing, activity, moment());
+function increment (job, done) {
+  var activities = job.data.model.activities,
+    thing = job.data.model.thing;
+  activities.forEach(function (activity) {
+    dataStore.addActivity(thing, activity, job.data.model.when);
+  });
+  done();
 }

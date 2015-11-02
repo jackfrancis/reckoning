@@ -40,7 +40,7 @@ describe('test POST/GET activity', function () {
           throw err;
         }
         expect(res.status).toBe(200);
-        expect(res.body.data.activities.length).toBe(1);
+        expect(res.body.data.model.activities.length).toBe(1);
         done();
       });
   });
@@ -55,7 +55,7 @@ describe('test POST/GET activity', function () {
           throw err;
         }
         expect(res.status).toBe(200);
-        expect(res.body.data.activities.length).toBe(2);
+        expect(res.body.data.model.activities.length).toBe(2);
         done();
       });
   });

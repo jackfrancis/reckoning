@@ -1,4 +1,7 @@
 {
   "activities": [],
-  "enableUi": true
+  "workerQueue": {
+    "concurrency": 20,
+    "enableUi": true
+  }
 }
